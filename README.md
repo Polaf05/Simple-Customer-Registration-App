@@ -101,6 +101,20 @@ data class CustomerFormState(
 ```
 ---
 
+##🧪 Unit Testing
+
+**Basic unit tests** ensure your data flow and logic behave correctly before UI integration.
+Below are simplified examples for testing both the **Repository** and **ViewModel** layers.
+
+✅ Test highlights:
+
+Uses MockK for mocking DAO and repository.
+Uses runTest for coroutine scope safety.
+Ensures repository calls are triggered correctly.
+Validates ViewModel state and logic without touching UI.
+
+---
+
 ## 🚀 Quick Start
 
 1. Clone the repository:
