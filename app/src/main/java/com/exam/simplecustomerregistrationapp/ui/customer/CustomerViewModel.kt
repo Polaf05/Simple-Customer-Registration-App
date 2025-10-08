@@ -6,9 +6,12 @@ import com.exam.simplecustomerregistrationapp.data.database.entity.Customer
 import com.exam.simplecustomerregistrationapp.data.repository.customer.CustomerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -17,25 +20,19 @@ class CustomerViewModel @Inject constructor(
     private val repository: CustomerRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<CustomerUiState>(CustomerUiState.Loading)
-    val uiState: StateFlow<CustomerUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<CustomerUiState> = repository.getCustomers()
+        .map<List<Customer>, CustomerUiState> { customers ->
+            CustomerUiState.Success(customers)
+        }
+        .catch { emit(CustomerUiState.Error(it.message ?: "Unknown error")) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = CustomerUiState.Loading
+        )
 
     private val _formState = MutableStateFlow(CustomerFormState())
     val formState: StateFlow<CustomerFormState> = _formState.asStateFlow()
-
-    init {
-        getCustomers()
-    }
-
-    private fun getCustomers() {
-        viewModelScope.launch {
-            repository.getCustomers()
-                .catch { _uiState.value = CustomerUiState.Error(it.message ?: "Unknown error") }
-                .collect { customers ->
-                    _uiState.value = CustomerUiState.Success(customers)
-                }
-        }
-    }
 
     fun onFormChange(
         firstName: String = _formState.value.firstName,
@@ -53,23 +50,21 @@ class CustomerViewModel @Inject constructor(
         ).validate()
     }
 
-    fun loadCustomer(customerId: String) {
-        viewModelScope.launch {
-            try {
-                val customer = repository.getCustomerById(customerId.toInt())
-                _formState.value = CustomerFormState(
-                    firstName = customer?.firstName ?: "",
-                    lastName = customer?.lastName ?: "",
-                    mobileNumber = customer?.mobileNumber ?: "",
-                    address = customer?.address ?: "",
-                    photoUri = customer?.photoUri,
-                    isValid = true
-                )
-            } catch (e: Exception) {
-                _formState.value = CustomerFormState(
-                    errorMessage = e.message ?: "Failed to load customer."
-                )
-            }
+    suspend fun loadCustomer(customerId: String) {
+        try {
+            val customer = repository.getCustomerById(customerId.toInt())
+            _formState.value = CustomerFormState(
+                firstName = customer?.firstName ?: "",
+                lastName = customer?.lastName ?: "",
+                mobileNumber = customer?.mobileNumber ?: "",
+                address = customer?.address ?: "",
+                photoUri = customer?.photoUri,
+                isValid = true
+            )
+        } catch (e: Exception) {
+            _formState.value = CustomerFormState(
+                errorMessage = e.message ?: "Failed to load customer."
+            )
         }
     }
 
@@ -97,7 +92,6 @@ class CustomerViewModel @Inject constructor(
                 }
 
                 _formState.value = CustomerFormState()
-                getCustomers()
             } catch (e: Exception) {
                 _formState.value = form.copy(errorMessage = e.message)
             }
@@ -107,7 +101,6 @@ class CustomerViewModel @Inject constructor(
     fun deleteCustomer(customer: Customer) {
         viewModelScope.launch {
             repository.deleteCustomer(customer)
-            getCustomers()
         }
     }
 }
