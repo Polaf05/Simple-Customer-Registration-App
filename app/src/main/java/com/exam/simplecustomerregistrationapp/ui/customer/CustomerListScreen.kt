@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,12 +33,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,8 +64,10 @@ fun CustomerListScreen(
     navController: NavController, viewModel: CustomerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var customerToDelete by remember { mutableStateOf<Customer?>(null) }
 
-    Scaffold(floatingActionButton = {
+    Scaffold(
+        floatingActionButton = {
         FloatingActionButton(
             onClick = { navController.navigate(Screen.CustomerRegistration.route + "/customerId=") },
             containerColor = MaterialTheme.colorScheme.primary
@@ -138,11 +143,33 @@ fun CustomerListScreen(
                         items(customers) { customer ->
                             CustomerListItem(customer = customer, onEdit = {
                                 navController.navigate(Screen.CustomerRegistration.route + "/customerId=${customer.id}")
-                            }, onDelete = { viewModel.deleteCustomer(it) })
+                            }, onDelete = { customerToDelete = customer })
                         }
                     }
                 }
             }
+        }
+
+        if (customerToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { customerToDelete = null },
+                title = { Text("Delete Customer") },
+                text = { Text("Are you sure you want to delete ${customerToDelete?.firstName} ${customerToDelete?.lastName}?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.deleteCustomer(customerToDelete!!)
+                        customerToDelete = null
+
+                    }) {
+                        Text("Delete", color = Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { customerToDelete = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }

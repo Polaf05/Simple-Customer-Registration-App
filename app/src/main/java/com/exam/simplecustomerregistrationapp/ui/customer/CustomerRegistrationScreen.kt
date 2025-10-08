@@ -12,6 +12,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -39,17 +40,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -65,6 +72,11 @@ fun CustomerRegistrationScreen(
     customerId: String? = null,
 ) {
     val formState by viewModel.formState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     val context = LocalContext.current
     context as Activity
 
@@ -121,6 +133,7 @@ fun CustomerRegistrationScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(title = {
                 Text(
@@ -139,7 +152,13 @@ fun CustomerRegistrationScreen(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .padding(padding)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    })
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Profile Photo Section
@@ -270,6 +289,13 @@ fun CustomerRegistrationScreen(
                     text = if (customerId == null) "Save Customer" else "Update Customer",
                     style = MaterialTheme.typography.labelLarge
                 )
+            }
+        }
+
+        if (uiState is CustomerUiState.Error) {
+            val message = (uiState as CustomerUiState.Error).message
+            LaunchedEffect(message) {
+                snackbarHostState.showSnackbar(message)
             }
         }
     }
